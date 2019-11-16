@@ -97,12 +97,12 @@
     mymap.on('click', onMapClick);
     function maptest(querystring){
         markers.clearLayers();
-        mymap.setView([36.69,139.69], 5);//検索時に地図の表示位置を初期化する。
+        mymap.setView([36.69,139.69], 7);//検索時に地図の表示位置を初期化する。
         $.ajax({
             url:"https://jpsearch.go.jp/api/item/search/jps-cross?"+querystring,
             type:'GET',
             data:{
-			        size: "500"
+			        size: "2000"
             }
         }).then(function(data){
             var result = data.list;
