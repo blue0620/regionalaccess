@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+
+    <title>地域資料を見てみよう！</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Material Design Bootstrap -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.5.4/css/mdb.min.css" rel="stylesheet">
+  <script src="//code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+  <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.0.1/dist/leaflet.js"></script>
+
+</head>
+<body>
+<p><a href="https://jpsearch.go.jp/api/webapi/">ジャパンサーチ簡易WebAPI</a>利活用例</p>
+<p><span class="label label-default">調べたい条件を設定して地図上をクリックしてください</span></p>
+<select id="grange">
+	<option value="100m">100m圏内</option>
+	<option value="1km">1km圏内</option>
+	<option value="10km">10km圏内</option>
+	<option value="40km">40km圏内</option>
+  <option value="100km">100km圏内</option>
+</select>
+<!--form name="contents"><p>
+<input type="checkbox" name="fcontents" value="thumb" checked="checked">サムネイルのあるものだけ検索
+</p>
+</form><br/!-->
+<form name="category"><p>
+<input type="checkbox" name="fccategory" value="official" checked="checked">公文書
+<input type="checkbox" name="fccategory" value="science">自然史・理工学
+<input type="checkbox" name="fccategory" value="book">書籍等
+<input type="checkbox" name="fccategory" value="humanities" checked="checked">人文学
+<input type="checkbox" name="fccategory" value="cultural" checked="checked">文化財
+<input type="checkbox" name="fccategory" value="regeional" checked="checked">地域
+<input type="checkbox" name="fccategory" value="art" checked="checked">美術
+<input type="checkbox" name="fccategory" value="broadcast" checked="checked">放送番組
+</p>
+</form>
+<button class="btn btn-default" onclick="location.reload()">リセット</button>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"
+   integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA=="
+   crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css" integrity="sha512-Rksm5RenBEKSKFjgI3a41vrjkw4EVPlJ3+OiI65vTjIdo9brlAacEuKOiQ5OFh7cOI1bkDwLqdLw3Zg0cRJAAQ==" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.3.1/dist/leaflet.js" integrity="sha512-/Nsx9X4HebavoBvEBuyp3I7od5tA0UzAxs+j83KgC8PU0kgB4XiK4Lfe4y4cgBtaRJQEIFCW+oC506aPT2L1zw==" crossorigin=""></script>
+  <link rel="stylesheet" href="https://leaflet.github.io/Leaflet.markercluster/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://leaflet.github.io/Leaflet.markercluster/dist/MarkerCluster.Default.css">
+  <script src="https://leaflet.github.io/Leaflet.markercluster/dist/leaflet.markercluster-src.js"></script>
+  <script src="https://leaflet.github.io/Leaflet.markercluster/example/realworld.388.js"></script>
+
+
+<div id="mapid" style="width: 100%; height: 800px;"></div>
+<script>
+    
+    var pale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',
+            {id: 'palemap', attribution: "<a href='http://portal.cyberjapan.jp/help/termsofuse.html' target='_blank'>国土地理院</a>"}),
+        seamless = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',
+            {id: 'seamlessmap', attribution: "<a href='http://portal.cyberjapan.jp/help/termsofuse.html' target='_blank'>国土地理院</a>"});
+    var baseMaps = { 
+        "航空写真(全国最新写真)" : seamless,
+        "淡色地図" : pale
+    }
+    var mymap = L.map('mapid',{
+                            layers: [pale]
+                        }).setView([36.69,139.69], 7);//表示される地図の位置を決める
+		L.control.layers(baseMaps).addTo(mymap); 
+    var markers = L.markerClusterGroup();
+    var searchflag=true;
+		function onMapClick(e) {
+       
+       lat = e.latlng.lat;
+			 lng = e.latlng.lng;
+			 num=grange.selectedIndex;
+			 grangeparam="g-coordinates="+lat+","+lng+","+grange.options[num].value
+			 //alert(grangeparam);
+			 categoryparam="";//カテゴリの除外をするか
+       for (var i = 0; i < document.category.fccategory.length; i++) { 
+		    // i番目のチェックボックスがチェックされているかを判定
+		    if (!document.category.fccategory[i].checked) {
+		      categoryparam+="&fc-category=-"+document.category.fccategory[i].value;
+		    }
+		   }
+			 /*thumbparam=""//サムネイルありのみにするか
+			 for (var i = 0; i < document.contents.fcontents.length; i++) { 
+		    // i番目のチェックボックスがチェックされているかを判定
+		    if (document.contents.fcontents[i].checked) {
+		      thumbparam+="&f-contents="+document.contents.fcontents[i].value;
+		    }
+		   }*/
+       if(searchflag)maptest("&"+grangeparam+categoryparam);
+    }
+    mymap.on('click', onMapClick);
+    function maptest(querystring){
+        markers.clearLayers();
+        mymap.setView([36.69,139.69], 5);//検索時に地図の表示位置を初期化する。
+        $.ajax({
+            url:"https://jpsearch.go.jp/api/item/search/jps-cross?"+querystring,
+            type:'GET',
+            data:{
+			        size: "500"
+            }
+        }).then(function(data){
+            var result = data.list;
+            var items = new Array();
+            var mlat = 0;//leafletの地図表示範囲を決めるために検索結果の緯度の和をとってる
+            var mlong = 0;//leafletの地図表示範囲を決めるために検索結果の経度の和をとってる
+            var set = new Array();
+            if(result.length>0){
+							searchflag=false;
+	            for (var i = 0; i < result.length; i++) {
+	                var obj = result[i];
+	                var s = "https://jpsearch.go.jp/item/"+obj.id;
+	                var title = obj.common.title; //検索結果のタイトルを表示する
+									if(!obj.common.coordinates)continue;
+	                var url = s;
+	                var marker = L.marker(new L.LatLng(obj.common.coordinates.lat, obj.common.coordinates.lon), { title: title });
+	                mlat += Number(obj.common.coordinates.lat);
+	                mlong += Number(obj.common.coordinates.lon);
+					//標本のマーカーをクリックしたとき表示されるコンテンツを作る
+	                var contents = '<div>';
+									if(obj.common.thumbnailUrl)contents += '<img src='+obj.common.thumbnailUrl+' border="0" width="256" height="256"/>';
+	                contents += '<h5 class="mt-0">タイトル:'+title+'</h5>';
+	                contents += "<p><a class='btn btn-primary' href='"+url+"' target='_blank'>ジャパンサーチでアイテムを見る</a></br>";
+	                contents += "<a class='btn btn-secondary' href='https://ja.wikipedia.org/wiki/"+title+"' target='_blank'>ウィキペディアで調べる</a></br>";
+	                contents += '</div>';
+					
+					//作ったコンテンツを地図に登録する。
+	                marker.bindPopup(contents).on('click', clickZoom);
+	                markers.addLayer(marker);
+	            }
+            mymap.addLayer(markers);
+            var popup = L.popup();
+            
+            function clickZoom(e) {//クリックした際のズーム倍率を決める
+                mymap.setView(e.target.getLatLng(),13);
+            }
+            //mymap.on('click', null);
+            mymap.panTo(new L.LatLng(mlat / result.length, mlong / result.length));//表示位置を決める
+					}
+    	})
+    }
+</script>
+</body>
+</html>
